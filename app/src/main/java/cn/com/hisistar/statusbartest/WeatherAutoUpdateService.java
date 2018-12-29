@@ -72,7 +72,8 @@ public class WeatherAutoUpdateService extends Service {
 
     private void updateWeather() {
         Log.i(TAG, "Loading location infomation ...");
-        String ipJson = getHttpEntity("http://ip-api.com/json");
+//        String ipJson = getHttpEntity("http://ip-api.com/json");
+        String ipJson = getHttpEntity("http://whois.pconline.com.cn/ipJson.jsp?json=true");
         Log.e(TAG, "onHandleIntent: ipjson=" + ipJson);
         if (ipJson == null)
             return;
@@ -127,7 +128,8 @@ public class WeatherAutoUpdateService extends Service {
     private String getLocationFromJson(String json) {
         try {
             JSONObject jObject = new JSONObject(json);
-            return jObject.getString("city") + ", " + jObject.getString("countryCode");
+//            return jObject.getString("city") + ", " + jObject.getString("countryCode");
+            return jObject.getString("city");
         } catch (JSONException e) {
             e.printStackTrace();
             return null;
