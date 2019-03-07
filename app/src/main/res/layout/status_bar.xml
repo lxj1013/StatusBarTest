@@ -25,8 +25,8 @@
                 android:layout_height="0dp"
                 android:layout_weight="1"
                 android:gravity="center"
-                android:textSize="18sp"
                 android:textColor="#ffffff"
+                android:textSize="18sp"
                 android:textStyle="bold"
                 android:visibility="gone" />
 
@@ -35,9 +35,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                android:textSize="18sp"
                 android:gravity="center"
                 android:textColor="#ffffff"
+                android:textSize="18sp"
                 android:textStyle="bold"
                 android:visibility="gone" />
         </LinearLayout>
@@ -59,6 +59,14 @@
         android:background="@drawable/my_btn_style2"
         android:src="@drawable/ethernet_on"
         android:visibility="gone" />
+
+    <ImageButton
+        android:id="@+id/phone_4g_img"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:background="@drawable/my_btn_style2"
+        android:src="@drawable/phone_4g_signal_list"
+         />
 
     <ImageButton
         android:id="@+id/wifi_img"

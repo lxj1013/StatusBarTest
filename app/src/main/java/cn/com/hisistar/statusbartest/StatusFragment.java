@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.ConnectivityManager;
 import android.net.EthernetDataTracker;
 import android.net.NetworkInfo;
 import android.net.ethernet.EthernetManager;
@@ -13,6 +14,10 @@ import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.preference.PreferenceActivity;
 import android.app.Fragment;
+import android.telephony.PhoneStateListener;
+import android.telephony.ServiceState;
+import android.telephony.SignalStrength;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -20,6 +25,7 @@ import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
+
 
 /**
  * DATE 2018/12/14 10:41
@@ -29,6 +35,7 @@ import android.widget.Toast;
 public class StatusFragment extends Fragment implements View.OnClickListener {
     private static final String TAG = StatusFragment.class.getSimpleName();
 
+    private ImageButton phone4GiView;
     private ImageButton wifiView;
     private ImageButton ethernetView;
     private ImageButton bluetoothView;
@@ -44,6 +51,9 @@ public class StatusFragment extends Fragment implements View.OnClickListener {
     private TextView tempTv;
     private TextView weatherTv;
 
+    private PhoneStateListener mPhoneStateListener;
+    private TelephonyManager mTelephonyManager;
+    private boolean is4GConnected = false;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -56,8 +66,8 @@ public class StatusFragment extends Fragment implements View.OnClickListener {
         initEthernetStatus();
         initBluetoothStatus();
         initWifiAPStatus();
-
-        initWeatherStatus();
+        initPhoneStatus();
+//        initWeatherStatus();
         return view;
     }
 
@@ -92,6 +102,7 @@ public class StatusFragment extends Fragment implements View.OnClickListener {
     }
 
     private void initViews(View view) {
+        phone4GiView = (ImageButton) view.findViewById(R.id.phone_4g_img);
         wifiView = (ImageButton) view.findViewById(R.id.wifi_img);
         ethernetView = (ImageButton) view.findViewById(R.id.ethernet_img);
         bluetoothView = (ImageButton) view.findViewById(R.id.bluetooth_img);
@@ -130,10 +141,87 @@ public class StatusFragment extends Fragment implements View.OnClickListener {
         getActivity().startService(intent);
     }
 
+    private void initPhoneStatus() {
+
+        is4GConnected = is4GAvailable();
+        phone4GiView.setVisibility(is4GConnected ? View.VISIBLE : View.GONE);
+
+        mPhoneStateListener = new PhoneStateListener() {
+            @Override
+            public void onSignalStrengthsChanged(SignalStrength signalStrength) {
+                int level = signalStrength.getLevel();
+                if ((level >= 0) && (level <= 4)) {
+                    phone4GiView.setVisibility(is4GConnected ? View.VISIBLE : View.GONE);
+                    phone4GiView.setImageLevel(level);
+                } else {
+                    phone4GiView.setVisibility(View.GONE);
+                }
+                Log.d(TAG, "onSignalStrengthsChanged: level=" + signalStrength.getLevel());
+                Log.d(TAG, "onSignalStrengthsChanged signalStrength=" + signalStrength.toString());
+            }
+
+            @Override
+            public void onServiceStateChanged(ServiceState state) {
+                Log.d(TAG, "onServiceStateChanged voiceState=" + state.toString());
+            }
+
+            @Override
+            public void onCallStateChanged(int state, String incomingNumber) {
+                Log.d(TAG, "onCallStateChanged state=" + state + "  incomingNumber=" + incomingNumber);
+            }
+
+            @Override
+            public void onDataConnectionStateChanged(int state, int networkType) {
+                Log.d(TAG, "onDataConnectionStateChanged: state=" + state
+                        + " networkType=" + networkType);
+                if ((state == TelephonyManager.DATA_CONNECTED) && (networkType == TelephonyManager.NETWORK_TYPE_LTE)) {
+                    is4GConnected = true;
+                } else {
+                    is4GConnected = false;
+                }
+            }
+
+            @Override
+            public void onDataActivity(int direction) {
+                Log.d(TAG, "onDataActivity: direction=" + direction);
+            }
+        };
+
+        mTelephonyManager = (TelephonyManager) getActivity().getApplicationContext().getSystemService(Context.TELEPHONY_SERVICE);
+        mTelephonyManager.listen(mPhoneStateListener,
+                PhoneStateListener.LISTEN_SERVICE_STATE
+                        | PhoneStateListener.LISTEN_SIGNAL_STRENGTHS
+                        | PhoneStateListener.LISTEN_CALL_STATE
+                        | PhoneStateListener.LISTEN_DATA_CONNECTION_STATE
+                        | PhoneStateListener.LISTEN_DATA_ACTIVITY);
+    }
+
+    /**
+     * 判断当前网络是否是4G网络
+     *
+     * @param
+     * @return boolean
+     */
+    public boolean is4GAvailable() {
+        ConnectivityManager connectivityManager = (ConnectivityManager) getActivity().getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetInfo = connectivityManager.getActiveNetworkInfo();
+        if (activeNetInfo != null && activeNetInfo.getType() == ConnectivityManager.TYPE_MOBILE) {
+            TelephonyManager telephonyManager = (TelephonyManager) getActivity().getSystemService(Context.TELEPHONY_SERVICE);
+            int networkType = telephonyManager.getNetworkType();
+            /** Current network is LTE */
+            if (networkType == 13) {
+                /**此时的网络是4G的*/
+                return true;
+            }
+        }
+        return false;
+    }
+
 
     private void registerStatusReceiver() {
         mReceiver = new StatusReceiver();
         IntentFilter filter = new IntentFilter();
+        filter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
         filter.addAction(EthernetManager.ETHERNET_STATE_CHANGED_ACTION);
         filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
         filter.addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION);
@@ -226,6 +314,11 @@ public class StatusFragment extends Fragment implements View.OnClickListener {
                 Log.e(TAG, "onReceive: " + WifiManager.WIFI_AP_STATE_CHANGED_ACTION + " state=" + state);
             }
 
+            if (action.equals(ConnectivityManager.CONNECTIVITY_ACTION)) {
+                is4GConnected = is4GAvailable();
+                phone4GiView.setVisibility(is4GConnected ? View.VISIBLE : View.GONE);
+            }
+
             if (action.equals(WeatherAutoUpdateService.ACTION_REPORT_WEATHER)) {
                 String weatherInfo = intent.getStringExtra("info");
                 Log.e(TAG, "onReceive: weatherInfo=" + weatherInfo);
@@ -233,7 +326,7 @@ public class StatusFragment extends Fragment implements View.OnClickListener {
                 if (weatherInfos.length == 4) {
                     tempTv.setVisibility(View.VISIBLE);
                     weatherTv.setVisibility(View.VISIBLE);
-                    String temp = weatherInfos[1]+"℃";
+                    String temp = weatherInfos[1] + "℃";
                     tempTv.setText(temp);
                     int index = Integer.parseInt(weatherInfos[3]);
                     String weather = getResources().getStringArray(R.array.weather)[index];
